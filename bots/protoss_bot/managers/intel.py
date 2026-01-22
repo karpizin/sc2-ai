@@ -44,19 +44,36 @@ class IntelManager:
         """Анализирует стратегию оппонента на основе увиденного."""
         game_time = self.bot.time # время в секундах
         
-        # 1. Детекция RUSH (мало рабочих на раннем этапе + агрессивные здания)
-        if game_time < 180: # первые 3 минуты
-            # Если мы увидели базу врага, но там подозрительно мало рабочих
+        # Определяем расу врага (если еще не определена)
+        enemy_race = self.bot.enemy_race
+
+        # 1. Детекция RUSH и PROXY
+        if game_time > 80 and game_time < 200:
             if self.enemy_main_base_location and self.bot.is_visible(self.enemy_main_base_location):
-                if self.enemy_workers_count > 0 and self.enemy_workers_count < 12:
-                    self.inferred_strategy = "RUSH"
+                # Проверяем наличие базовых производящих зданий
+                has_production = False
+                if enemy_race == sc2.Race.Terran:
+                    has_production = any(d["type"] == UnitTypeId.BARRACKS for d in self.enemy_structures_memory.values() if d["pos"].distance_to(self.enemy_main_base_location) < 30)
+                elif enemy_race == sc2.Race.Protoss:
+                    has_production = any(d["type"] == UnitTypeId.GATEWAY for d in self.enemy_structures_memory.values() if d["pos"].distance_to(self.enemy_main_base_location) < 30)
+                elif enemy_race == sc2.Race.Zerg:
+                    has_production = any(d["type"] == UnitTypeId.SPAWNINGPOOL for d in self.enemy_structures_memory.values())
+                
+                # Если мы видим базу, время > 1:30, а производства нет - это ПРОКСИ
+                if not has_production and game_time > 100:
+                    if enemy_race != sc2.Race.Zerg: # У зергов пул может быть позже, но у Т и П бараки/гейты должны быть
+                        self.inferred_strategy = "PROXY_DETECTED"
+
+            # Старая логика по рабочим
+            if self.enemy_workers_count > 0 and self.enemy_workers_count < 12 and game_time < 150:
+                self.inferred_strategy = "CHEESE_ALL_IN"
             
-            # Проверка на прокси-здания или ранние пулы
+            # Проверка на прокси-здания (если мы их реально нашли где-то на карте)
             for data in self.enemy_structures_memory.values():
-                if data["type"] == UnitTypeId.BARRACKS and data["pos"].distance_to(self.enemy_main_base_location) > 50:
-                    self.inferred_strategy = "PROXY_RUSH"
-                if data["type"] == UnitTypeId.SPAWNINGPOOL and game_time < 100:
-                    self.inferred_strategy = "EARLY_POOL"
+                if data["type"] in {UnitTypeId.BARRACKS, UnitTypeId.GATEWAY} and \
+                   self.enemy_main_base_location and \
+                   data["pos"].distance_to(self.enemy_main_base_location) > 50:
+                    self.inferred_strategy = "CONFIRMED_PROXY"
 
         # 2. Детекция макро (быстрая вторая база)
         townhalls = [d for d in self.enemy_structures_memory.values() if d["type"] in {UnitTypeId.NEXUS, UnitTypeId.COMMANDCENTER, UnitTypeId.HATCHERY}]
