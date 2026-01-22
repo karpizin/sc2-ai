@@ -48,6 +48,23 @@ python3 bots/hello_world_bot.py
 
 ---
 
+## 🐳 Docker Deployment (Headless)
+
+For running matches on servers or in the background, we provide a Docker setup.
+
+### 1. Download SC2 Linux Binaries
+Due to licensing, you must download the Linux binaries yourself:
+1. Go to [Blizzard s2client-proto](https://github.com/Blizzard/s2client-proto#linux-packages).
+2. Download the latest package (e.g., 4.10).
+3. Extract it into the project root so you have a `StarCraftII/` folder.
+
+### 2. Run with Docker Compose
+```bash
+docker-compose up --build
+```
+
+---
+
 ## 🏗 Project Structure
 
 - `bots/`: Contains the source code for various AI agents.

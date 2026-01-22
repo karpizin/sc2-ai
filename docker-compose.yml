@@ -1,0 +1,19 @@
+version: '3.8'
+
+services:
+  sc2-bot:
+    build: .
+    container_name: sc2-ai-agent
+    volumes:
+      # Пробрасываем папку с картами из хоста в контейнер
+      - ./maps:/app/StarCraftII/Maps
+      # Если хотим сохранять реплеи
+      - ./replays:/app/StarCraftII/Replays
+    environment:
+      - PYTHONUNBUFFERED=1
+    # Для Linux-серверов можно ограничить ресурсы
+    deploy:
+      resources:
+        limits:
+          cpus: '2'
+          memory: 4G
