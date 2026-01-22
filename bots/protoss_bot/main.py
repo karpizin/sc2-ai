@@ -43,6 +43,11 @@ class ProtossModularBot(sc2.BotAI):
         self.client.debug_text_screen(f"Enemy Workers Seen: {workers}", (0.01, 0.13), color=(255, 255, 0), size=14)
         self.client.debug_text_screen(f"Enemy structures in memory: {num_structures}", (0.01, 0.16), color=(0, 255, 0), size=12)
         
+        # Подсветка поискового отряда
+        searchers = self.units.filter(lambda u: u.tag in self.scout_manager.proxy_searcher_tags)
+        for unit in searchers:
+            self.client.debug_text_world("PROXY SEARCHER", unit.position, color=(255, 0, 0), size=10)
+
         for data in enemy_info["structures"].values():
             self.client.debug_sphere_out(data["pos"], 1.0, color=(0, 255, 0))
 
