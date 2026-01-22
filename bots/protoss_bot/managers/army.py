@@ -33,16 +33,30 @@ class ArmyManager:
     async def _execute_attack(self):
         """Логика атаки: если армия большая — идем к врагу."""
         army = self.bot.units.filter(lambda u: u.type_id in {UnitTypeId.ZEALOT, UnitTypeId.STALKER, UnitTypeId.ADEPT})
+        strategy = self.bot.intel_manager.get_enemy_info()["strategy"]
+        is_threatened = strategy in {"PROXY_DETECTED", "CONFIRMED_PROXY", "CHEESE_ALL_IN"}
+
+        # Повышаем порог атаки, если мы под угрозой
+        effective_threshold = self.attack_threshold + (10 if is_threatened else 0)
         
-        if army.amount >= self.attack_threshold:
+        # Если есть прямая угроза - ВСЯ армия защищает базу
+        if is_threatened:
+            enemy_near_base = self.bot.enemy_units.closer_than(30, self.bot.townhalls.first)
+            if enemy_near_base.exists:
+                target = enemy_near_base.closest_to(self.bot.townhalls.first)
+                for unit in army.idle:
+                    unit.attack(target)
+                return
+            else:
+                # Ждем врага на рампе
+                rally_point = self.bot.main_base_ramp.top_center
+                for unit in army.idle:
+                    unit.move(rally_point)
+                return
+
+        # Обычная логика атаки
+        if army.amount >= effective_threshold:
             enemy_pos = self.bot.intel_manager.get_enemy_info()["main_pos"]
             if enemy_pos:
                 for unit in army.idle:
                     unit.attack(enemy_pos)
-        
-        # Если армии мало, собираем её у входа на базу (Natural)
-        else:
-            if self.bot.townhalls.exists:
-                rally_point = self.bot.main_base_ramp.top_center
-                for unit in army.idle:
-                    unit.move(rally_point)

@@ -57,6 +57,8 @@ class ProductionManager:
             return
 
         pylon = pylons.random
+        strategy = self.bot.intel_manager.get_enemy_info()["strategy"]
+        is_threatened = strategy in {"PROXY_DETECTED", "CONFIRMED_PROXY", "CHEESE_ALL_IN"}
 
         # Базовая технологическая цепочка
         if self.bot.structures(UnitTypeId.GATEWAY).amount + self.bot.structures(UnitTypeId.WARPGATE).amount == 0:
@@ -69,7 +71,13 @@ class ProductionManager:
                 if self.bot.can_afford(UnitTypeId.CYBERNETICSCORE):
                     await self.bot.build(UnitTypeId.CYBERNETICSCORE, near=pylon)
         
-        # Forge для пушек (если у нас больше 1 базы)
+        # ЭКСТРЕННЫЙ FORGE: если угроза, строим даже на одной базе
+        elif is_threatened and self.bot.structures(UnitTypeId.FORGE).amount == 0:
+            if self.bot.already_pending(UnitTypeId.FORGE) == 0:
+                if self.bot.can_afford(UnitTypeId.FORGE):
+                    await self.bot.build(UnitTypeId.FORGE, near=pylon)
+
+        # Forge для пушек (нормальный режим - если больше 1 базы)
         elif self.bot.townhalls.amount > 1 and self.bot.structures(UnitTypeId.FORGE).amount == 0:
             if self.bot.already_pending(UnitTypeId.FORGE) == 0:
                 if self.bot.can_afford(UnitTypeId.FORGE):
@@ -77,7 +85,6 @@ class ProductionManager:
 
         # Масштабирование Gateway
         else:
-            # 3-4 гейтвея на каждую базу
             max_gateways = self.bot.townhalls.amount * 3
             current_gateways = self.bot.structures(UnitTypeId.GATEWAY).amount + self.bot.structures(UnitTypeId.WARPGATE).amount
             
@@ -86,19 +93,25 @@ class ProductionManager:
                     await self.bot.build(UnitTypeId.GATEWAY, near=pylon)
 
     async def _base_defense(self):
-        """Минимальная защита баз (Пушка + Батарейка на каждой новой базе)."""
+        """Минимальная защита баз."""
+        strategy = self.bot.intel_manager.get_enemy_info()["strategy"]
+        is_threatened = strategy in {"PROXY_DETECTED", "CONFIRMED_PROXY", "CHEESE_ALL_IN"}
+
         if self.bot.structures(UnitTypeId.FORGE).ready.exists:
             for nexus in self.bot.townhalls.ready:
-                # Если рядом с Нексусом нет пушки
-                if not self.bot.structures(UnitTypeId.PHOTONCANNON).closer_than(10, nexus).exists:
+                # В случае угрозы строим больше защиты (2 пушки + 2 батарейки)
+                num_needed = 2 if is_threatened else 1
+                
+                # Фотонки
+                if self.bot.structures(UnitTypeId.PHOTONCANNON).closer_than(10, nexus).amount < num_needed:
                     if self.bot.can_afford(UnitTypeId.PHOTONCANNON):
                         pylons = self.bot.structures(UnitTypeId.PYLON).ready.closer_than(10, nexus)
                         if pylons.exists:
                             await self.bot.build(UnitTypeId.PHOTONCANNON, near=pylons.random)
 
-                # Если рядом нет батарейки
+                # Батарейки
                 if self.bot.structures(UnitTypeId.CYBERNETICSCORE).ready.exists:
-                    if not self.bot.structures(UnitTypeId.SHIELDBATTERY).closer_than(10, nexus).exists:
+                    if self.bot.structures(UnitTypeId.SHIELDBATTERY).closer_than(10, nexus).amount < num_needed:
                         if self.bot.can_afford(UnitTypeId.SHIELDBATTERY):
                             pylons = self.bot.structures(UnitTypeId.PYLON).ready.closer_than(10, nexus)
                             if pylons.exists:
