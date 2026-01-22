@@ -54,6 +54,7 @@ python3 bots/hello_world_bot.py
 - `docs/`: Technical documentation, product plans, and curated resources.
 - `docs/RESOURCES.md`: A collection of StarCraft II AI frameworks, APIs, and tutorials.
 - `docs/GETTING_STARTED.md`: Step-by-step onboarding from zero to a working bot.
+- `docs/BOT_ARCHITECTURE.md`: Detailed technical breakdown of how our Protoss agent works.
 - `docs/STANDARD_TOOLSET.md`: Industry standard libraries and frameworks for all languages.
 - `docs/ML_BOTS_OVERVIEW.md`: Analysis of Machine Learning approaches in SC2 (AlphaStar, RL, etc).
 - `docs/ML_TRAINING_CASES.md`: Detailed case studies of ML architectures and training pipelines.
