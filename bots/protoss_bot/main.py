@@ -23,7 +23,8 @@ class ProtossModularBot(sc2.BotAI):
         await self.intel_manager.update()
 
         # 2. Выполняем действия
-        await self.distribute_workers()
+        # Стандартный distribute_workers отключен для работы Mineral Micro в economy_manager
+        # await self.distribute_workers()
         await self.economy_manager.update()
         await self.production_manager.update()
         await self.army_manager.update()
