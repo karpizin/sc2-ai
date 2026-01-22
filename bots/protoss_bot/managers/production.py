@@ -8,61 +8,104 @@ class ProductionManager:
 
     async def update(self):
         await self._manage_supply()
+        await self._manage_expansions()
         await self._build_infrastructure()
         await self._research_upgrades()
+        await self._base_defense()
 
     async def _manage_supply(self):
-        """Строит пилоны, если лимит заканчивается."""
-        if self.bot.supply_left < 5 and self.bot.supply_cap < 200:
-            if self.bot.already_pending(UnitTypeId.PYLON) == 0:
+        """Строит пилоны."""
+        # Увеличиваем порог supply_left в зависимости от количества баз
+        threshold = 5 + (self.bot.townhalls.amount * 2)
+        if self.bot.supply_left < threshold and self.bot.supply_cap < 200:
+            if self.bot.already_pending(UnitTypeId.PYLON) < self.bot.townhalls.amount:
                 if self.bot.can_afford(UnitTypeId.PYLON):
-                    # Строим рядом с Нексусом
                     if self.bot.townhalls.ready.exists:
                         await self.bot.build(UnitTypeId.PYLON, near=self.bot.townhalls.ready.random)
 
+    async def _manage_expansions(self):
+        """Логика расширения на новые базы."""
+        # 1. Если мы уже строим базу - ждем
+        if self.bot.already_pending(UnitTypeId.NEXUS):
+            return
+
+        # 2. Условия для экспансии:
+        # - Много минералов (> 400)
+        # - Или текущие базы почти забиты рабочими
+        should_expand = False
+        if self.bot.can_afford(UnitTypeId.NEXUS):
+            if self.bot.minerals > 800: # Избыток ресурсов
+                should_expand = True
+            elif self.bot.supply_workers > (self.bot.townhalls.amount * 18): # Насыщение близко
+                should_expand = True
+
+        if should_expand:
+            # Находим ближайшее свободное место для экспансии
+            await self.bot.expand_now()
+
     async def _build_infrastructure(self):
-        """Адаптивная постройка зданий."""
+        """Постройка зданий (Gateway, CyberCore, etc)."""
         if not self.bot.townhalls.ready.exists:
             return
 
         nexus = self.bot.townhalls.ready.random
-
-        # 1. Пилон должен быть всегда первым
-        if self.bot.structures(UnitTypeId.PYLON).amount == 0 and self.bot.already_pending(UnitTypeId.PYLON) == 0:
-            if self.bot.can_afford(UnitTypeId.PYLON):
+        pylons = self.bot.structures(UnitTypeId.PYLON).ready
+        
+        if not pylons.exists:
+            if self.bot.can_afford(UnitTypeId.PYLON) and not self.bot.already_pending(UnitTypeId.PYLON):
                 await self.bot.build(UnitTypeId.PYLON, near=nexus)
             return
 
-        # Находим готовый пилон для застройки рядом
-        pylons = self.bot.structures(UnitTypeId.PYLON).ready
-        if not pylons.exists:
-            return
         pylon = pylons.random
 
-        # 2. Gateway (первый)
+        # Базовая технологическая цепочка
         if self.bot.structures(UnitTypeId.GATEWAY).amount + self.bot.structures(UnitTypeId.WARPGATE).amount == 0:
             if self.bot.already_pending(UnitTypeId.GATEWAY) == 0:
                 if self.bot.can_afford(UnitTypeId.GATEWAY):
                     await self.bot.build(UnitTypeId.GATEWAY, near=pylon)
 
-        # 3. Cybernetics Core (как только готов первый Gateway)
         elif self.bot.structures(UnitTypeId.GATEWAY).ready.exists and self.bot.structures(UnitTypeId.CYBERNETICSCORE).amount == 0:
             if self.bot.already_pending(UnitTypeId.CYBERNETICSCORE) == 0:
                 if self.bot.can_afford(UnitTypeId.CYBERNETICSCORE):
                     await self.bot.build(UnitTypeId.CYBERNETICSCORE, near=pylon)
+        
+        # Forge для пушек (если у нас больше 1 базы)
+        elif self.bot.townhalls.amount > 1 and self.bot.structures(UnitTypeId.FORGE).amount == 0:
+            if self.bot.already_pending(UnitTypeId.FORGE) == 0:
+                if self.bot.can_afford(UnitTypeId.FORGE):
+                    await self.bot.build(UnitTypeId.FORGE, near=pylon)
 
-        # 4. Дополнительные Gateways (адаптивно: если много минералов — строим больше)
+        # Масштабирование Gateway
         else:
-            # Держим минимум 4 гейтвея на одну базу
-            max_gateways = self.bot.townhalls.amount * 4
+            # 3-4 гейтвея на каждую базу
+            max_gateways = self.bot.townhalls.amount * 3
             current_gateways = self.bot.structures(UnitTypeId.GATEWAY).amount + self.bot.structures(UnitTypeId.WARPGATE).amount
             
             if current_gateways < max_gateways and self.bot.can_afford(UnitTypeId.GATEWAY):
                 if self.bot.already_pending(UnitTypeId.GATEWAY) < 1:
                     await self.bot.build(UnitTypeId.GATEWAY, near=pylon)
 
+    async def _base_defense(self):
+        """Минимальная защита баз (Пушка + Батарейка на каждой новой базе)."""
+        if self.bot.structures(UnitTypeId.FORGE).ready.exists:
+            for nexus in self.bot.townhalls.ready:
+                # Если рядом с Нексусом нет пушки
+                if not self.bot.structures(UnitTypeId.PHOTONCANNON).closer_than(10, nexus).exists:
+                    if self.bot.can_afford(UnitTypeId.PHOTONCANNON):
+                        pylons = self.bot.structures(UnitTypeId.PYLON).ready.closer_than(10, nexus)
+                        if pylons.exists:
+                            await self.bot.build(UnitTypeId.PHOTONCANNON, near=pylons.random)
+
+                # Если рядом нет батарейки
+                if self.bot.structures(UnitTypeId.CYBERNETICSCORE).ready.exists:
+                    if not self.bot.structures(UnitTypeId.SHIELDBATTERY).closer_than(10, nexus).exists:
+                        if self.bot.can_afford(UnitTypeId.SHIELDBATTERY):
+                            pylons = self.bot.structures(UnitTypeId.PYLON).ready.closer_than(10, nexus)
+                            if pylons.exists:
+                                await self.bot.build(UnitTypeId.SHIELDBATTERY, near=pylons.random)
+
     async def _research_upgrades(self):
-        """Исследования (в первую очередь Warp Gate)."""
+        """Исследования."""
         if self.bot.structures(UnitTypeId.CYBERNETICSCORE).ready.idle.exists:
             core = self.bot.structures(UnitTypeId.CYBERNETICSCORE).ready.idle.first
             if self.bot.can_afford(UpgradeId.WARPGATERESEARCH) and not self.bot.already_pending_upgrade(UpgradeId.WARPGATERESEARCH):
