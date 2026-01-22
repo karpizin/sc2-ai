@@ -65,6 +65,15 @@ docker-compose up --build
 
 ---
 
+## 🛠 CI/CD Pipeline
+
+The project uses **GitHub Actions** for automated quality assurance and deployment:
+- **Linting:** Every push is checked with `flake8` for Python code style.
+- **Docker Build:** Automatic image building on every push.
+- **Registry:** On successful builds on `main`, images are pushed to **GHCR (GitHub Container Registry)**.
+
+---
+
 ## 🏗 Project Structure
 
 - `bots/`: Contains the source code for various AI agents.
