@@ -6,6 +6,7 @@ from sc2.ids.unit_typeid import UnitTypeId
 from managers.intel import IntelManager
 from managers.economy import EconomyManager
 from managers.production import ProductionManager
+from managers.army import ArmyManager
 
 class ProtossModularBot(sc2.BotAI):
     def __init__(self):
@@ -13,7 +14,7 @@ class ProtossModularBot(sc2.BotAI):
         self.intel_manager = IntelManager(self)
         self.economy_manager = EconomyManager(self)
         self.production_manager = ProductionManager(self)
-        # self.army_manager = ArmyManager(self)
+        self.army_manager = ArmyManager(self)
 
     async def on_step(self, iteration: int):
         # 1. Обновляем информацию (Intel)
@@ -23,6 +24,7 @@ class ProtossModularBot(sc2.BotAI):
         await self.distribute_workers()
         await self.economy_manager.update()
         await self.production_manager.update()
+        await self.army_manager.update()
         await self._debug_info()
 
     async def _debug_info(self):
