@@ -107,4 +107,4 @@ Example: `self.units(UnitTypeId.ZEALOT).idle` (finds all Zealots doing nothing).
 See the detailed [Product Plan](docs/PRODUCT_PLAN.md) for our 5-phase evolution strategy.
 
 ---
-© 2026 NEXTTHINGDONE.
+
